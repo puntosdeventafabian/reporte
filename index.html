@@ -379,7 +379,7 @@
             
             // 5. Calcular Diferencia (Saldo)
             // Comparamos el dinero ajustado CONTRA la venta de mercancía
-            const diferencia = dineroTotalComputable - finalTotalSales+dineroCaja;
+            const diferencia = dineroTotalComputable - finalTotalSales;
             
             // 6. Actualizar Resumen Fijo
             // NOTA: Etiqueta cambiada de "Ventas Esperadas Netas" a "Total Ventas Mercancia" para reflejar que es el objetivo
@@ -613,7 +613,7 @@
             
             // Nueva logica: Dinero computable = Caja - (Ingresos - Gastos)
             // = Caja - Ingresos + Gastos
-            const dineroTotalComputable = dineroCaja - movementsTotal;
+            const dineroTotalComputable = dineroCaja + movementsTotal;
             
             const diferencia = dineroTotalComputable - Math.round(totalVentasMercancia);
             
