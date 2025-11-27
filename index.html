@@ -680,7 +680,7 @@
                 report.movements.map(m => `
                     <div class="flex justify-between items-center text-xs text-gray-600">
                         <span>${m.name}:</span>
-                        <span class="${m.type === 'expense' ? 'text-green-600' : 'text-red-600'}">${m.type === 'expense' ? '(+)' : '(-)'} ${formatCurrency(m.value)}</span>
+                        <span class="${m.type === 'expense' ? 'text-green-600' : 'text-red-600'}">${m.type === 'expense' ? '(-)' : '(+)'} ${formatCurrency(m.value)}</span>
                     </div>
                 `).join('') : '<div class="text-xs text-gray-400 italic">Sin movimientos extra.</div>';
 
