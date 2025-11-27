@@ -375,7 +375,7 @@
             // Si hay un Gasto (-20), queremos sumarlo al efectivo (80) -> 80 - (-20) = 100
             // Si hay un Ingreso (+20), queremos restarlo del efectivo (120) -> 120 - (+20) = 100
             // Por lo tanto, restamos el movementsTotal.
-            const dineroTotalComputable = dineroCaja - movementsTotal;
+            const dineroTotalComputable = dineroCaja + movementsTotal;
             
             // 5. Calcular Diferencia (Saldo)
             // Comparamos el dinero ajustado CONTRA la venta de mercancía
