@@ -304,6 +304,8 @@
             container.appendChild(row);
         }
 
+        // Esta función calcula (Ingresos - Gastos).
+        // Si hay mas gastos, devuelve un numero negativo.
         function getMovementsTotal() {
             let total = 0;
             const rows = document.querySelectorAll('.movement-row');
@@ -362,24 +364,33 @@
             const finalTotalSales = Math.round(grandTotalSales);
 
             // 2. Calcular Movimientos (Gastos/Ingresos Dinámicos)
+            // returns (Ingresos - Gastos)
             const movementsTotal = getMovementsTotal();
 
-            // 3. Calcular Ventas Esperadas Netas
-            const ventasEsperadasNetas = finalTotalSales + movementsTotal;
-
-            // 4. Obtener Dinero de Caja
+            // 3. Obtener Dinero de Caja
             const cashAmountInput = document.getElementById('cash-amount');
             const dineroCaja = Math.round(parseFloat(cashAmountInput?.value) || 0);
+
+            // 4. NUEVA LOGICA: Ajustar el Dinero en Caja con los movimientos para justificar la venta
+            // Si hay un Gasto (-20), queremos sumarlo al efectivo (80) -> 80 - (-20) = 100
+            // Si hay un Ingreso (+20), queremos restarlo del efectivo (120) -> 120 - (+20) = 100
+            // Por lo tanto, restamos el movementsTotal.
+            const dineroTotalComputable = dineroCaja - movementsTotal;
             
             // 5. Calcular Diferencia (Saldo)
-            const diferencia = dineroCaja - ventasEsperadasNetas;
+            // Comparamos el dinero ajustado CONTRA la venta de mercancía
+            const diferencia = dineroTotalComputable - finalTotalSales;
             
             // 6. Actualizar Resumen Fijo
+            // NOTA: Etiqueta cambiada de "Ventas Esperadas Netas" a "Total Ventas Mercancia" para reflejar que es el objetivo
+            const labelVentasDisplay = document.querySelector('.fixed-summary-bar p.text-xs.font-medium.text-gray-500');
+            if (labelVentasDisplay) labelVentasDisplay.textContent = "Total Ventas Mercancia";
+
             const grandTotalSalesDisplay = document.getElementById('grand-total-sales-display');
             const cashDifferenceDisplay = document.getElementById('cash-difference-display');
             const cashDifferenceLabel = document.getElementById('cash-difference-label');
             
-            if (grandTotalSalesDisplay) grandTotalSalesDisplay.textContent = formatCurrency(ventasEsperadasNetas);
+            if (grandTotalSalesDisplay) grandTotalSalesDisplay.textContent = formatCurrency(finalTotalSales);
             
             if (cashDifferenceDisplay) {
                 cashDifferenceDisplay.textContent = formatCurrency(Math.abs(diferencia));
@@ -444,6 +455,9 @@
                     saldoTipo = 'Faltante';
                 }
                 
+                // Compatibilidad hacia atrás para reportes viejos que usaban 'ventasEsperadasNetas'
+                const displayTotal = data.totalVentasMercancia || data.ventasEsperadasNetas || 0;
+
                 const productDetails = data.products.map(p => {
                     if (p.totalVenta > 0) { 
                         return `
@@ -467,7 +481,7 @@
                             <div class="mb-3">
                                 <div>
                                     <p class="text-sm text-gray-600">Ventas total:</p>
-                                    <p class="text-xl font-extrabold text-green-700">${formatCurrency(data.ventasEsperadasNetas || data.totalVentas)}</p>
+                                    <p class="text-xl font-extrabold text-green-700">${formatCurrency(displayTotal)}</p>
                                 </div>
                                 <div class="mt-2">
                                     <p class="text-sm text-gray-600">Saldo (${saldoTipo}):</p>
@@ -593,10 +607,15 @@
                 }
             });
 
+            // Logic Updated: 
+            // movementsTotal = Income - Expenses
             const movementsTotal = movements.reduce((acc, m) => m.type === 'expense' ? acc - m.value : acc + m.value, 0);
-            const ventasEsperadasNetas = totalVentasMercancia + movementsTotal;
             
-            const diferencia = dineroCaja - Math.round(ventasEsperadasNetas);
+            // Nueva logica: Dinero computable = Caja - (Ingresos - Gastos)
+            // = Caja - Ingresos + Gastos
+            const dineroTotalComputable = dineroCaja - movementsTotal;
+            
+            const diferencia = dineroTotalComputable - Math.round(totalVentasMercancia);
             
             const finalReport = {
                 date: reportDate,
@@ -604,7 +623,7 @@
                 dineroCaja: dineroCaja, 
                 totalVentasMercancia: Math.round(totalVentasMercancia), 
                 movements: movements,
-                ventasEsperadasNetas: Math.round(ventasEsperadasNetas),
+                dineroTotalComputable: Math.round(dineroTotalComputable), // Nuevo campo
                 diferencia: diferencia,
                 products: reportData, 
                 timestamp: new Date().toISOString()
@@ -620,6 +639,7 @@
             
             document.getElementById('report-list').innerHTML = '';
             document.getElementById('movements-list').innerHTML = ''; // Limpiar movimientos
+            document.getElementById('cash-amount').value = 0;
             addProductCard({}); 
             loadReportHistory(); 
             recalculateReport();
@@ -654,11 +674,13 @@
                 </div>
             `;
             
+            // Revertir signo para visualización en sección de Caja: Gasto se ve como suma (justifica caja)
+            // Ingreso se ve como resta (dinero extra ajeno a ventas)
             const movementsHTML = report.movements && report.movements.length > 0 ? 
                 report.movements.map(m => `
                     <div class="flex justify-between items-center text-xs text-gray-600">
                         <span>${m.name}:</span>
-                        <span class="${m.type === 'expense' ? 'text-red-600' : 'text-blue-600'}">${m.type === 'expense' ? '-' : '+'} ${formatCurrency(m.value)}</span>
+                        <span class="${m.type === 'expense' ? 'text-green-600' : 'text-red-600'}">${m.type === 'expense' ? '(+)' : '(-)'} ${formatCurrency(m.value)}</span>
                     </div>
                 `).join('') : '<div class="text-xs text-gray-400 italic">Sin movimientos extra.</div>';
 
@@ -674,6 +696,9 @@
                         </tr>
                     `;
                 }).join('');
+            
+                // Calculo compatible para reportes antiguos y nuevos
+                const totalComputable = report.dineroTotalComputable !== undefined ? report.dineroTotalComputable : (report.ventasEsperadasNetas - report.diferencia); // Aproximacion si falla
                 
                 boucherBody.innerHTML = `
                     <div class="space-y-1 mb-4 text-center">
@@ -695,22 +720,26 @@
                         <tbody>${detailRows}</tbody>
                     </table>
                     <div class="border-t-2 border-dashed border-gray-400 pt-3 mt-4 space-y-2">
-                        <div class="flex justify-between items-center text-sm font-medium text-gray-700">
-                            <span>Valor Mercancia:</span>
-                            <span class="font-bold text-green-700">${formatCurrency(report.totalVentasMercancia)}</span>
+                        <div class="flex justify-between items-center text-sm font-bold text-gray-800 border-b border-gray-200 pb-2 mb-2">
+                            <span>TOTAL VENTAS MERCANCIA:</span>
+                            <span class="text-green-700">${formatCurrency(report.totalVentasMercancia)}</span>
                         </div>
-                        <div class="py-1 border-b border-gray-100">
-                            <p class="text-xs font-semibold text-gray-500 mb-1">Movimientos Caja:</p>
-                            ${movementsHTML}
-                        </div>
-                         <div class="flex justify-between items-center text-sm font-bold text-gray-800 pt-1">
-                            <span>Ventas Esperadas Netas:</span>
-                            <span>${formatCurrency(report.ventasEsperadasNetas)}</span>
-                        </div>
+                        
                         <div class="flex justify-between items-center text-sm font-medium text-gray-700">
                             <span>Dinero en Caja:</span>
                             <span class="font-bold text-indigo-700">${formatCurrency(report.dineroCaja)}</span>
                         </div>
+
+                        <div class="py-1 border-b border-gray-100">
+                            <p class="text-xs font-semibold text-gray-500 mb-1">Ajustes a Caja (Gastos/Ingresos):</p>
+                            ${movementsHTML}
+                        </div>
+                         
+                         <div class="flex justify-between items-center text-sm font-semibold text-gray-600 pt-1">
+                            <span>Total Dinero Computable:</span>
+                            <span>${formatCurrency(totalComputable)}</span>
+                        </div>
+                        
                         ${saldoHTML}
                     </div>
                     <div class="text-center mt-6 text-xs text-gray-500 border-t pt-3">
@@ -948,7 +977,7 @@
         <div class="grid grid-cols-2 gap-4 mb-3 border-b pb-3"> 
             <!-- Valor Total Mercancia (Ventas Esperadas Netas) -->
             <div>
-                <p class="text-xs font-medium text-gray-500">Ventas Esperadas Netas</p>
+                <p class="text-xs font-medium text-gray-500">Total Ventas Mercancia</p>
                 <p id="grand-total-sales-display" class="text-2xl font-extrabold text-green-700">0</p>
             </div>
             <!-- Saldo Faltante/Favor -->
