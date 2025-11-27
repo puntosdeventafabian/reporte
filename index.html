@@ -10,6 +10,9 @@
         // Clave de almacenamiento local para guardar todos los reportes
         const STORAGE_KEY = 'sales_reports_data_manual_cop_v6_decimal';
         
+        // Global variable to hold the last viewed report for sharing/printing
+        let currentReportToShare = null; 
+        
         // --- Lista Maestra de Productos ---
         const MASTER_PRODUCTS = [
             // isDecimal: true para Masa, donde el input de cantidad es en GRAMOS ENTEROS y el precio es por KILO.
@@ -103,6 +106,15 @@
             
             // Listener para el botón de agregar movimiento
             document.getElementById('add-movement-btn').addEventListener('click', addMovementRow);
+            
+            // Listener para el botón de compartir (NUEVO)
+            document.getElementById('share-boucher-btn').addEventListener('click', () => {
+                if (currentReportToShare) {
+                    shareReportSummary(currentReportToShare);
+                } else {
+                    displayMessage("Error: No hay reporte para compartir.", 'error');
+                }
+            });
             
             // --- LISTENERS DELEGADOS ---
             const reportArea = document.getElementById('main-report-area');
@@ -364,22 +376,17 @@
             const finalTotalSales = Math.round(grandTotalSales);
 
             // 2. Calcular Movimientos (Gastos/Ingresos Dinámicos)
-            // returns (Ingresos - Gastos)
             const movementsTotal = getMovementsTotal();
 
             // 3. Obtener Dinero de Caja
             const cashAmountInput = document.getElementById('cash-amount');
             const dineroCaja = Math.round(parseFloat(cashAmountInput?.value) || 0);
 
-            // 4. NUEVA LOGICA: Ajustar el Dinero en Caja con los movimientos para justificar la venta
-            // Si hay un Gasto (-20), queremos sumarlo al efectivo (80) -> 80 - (-20) = 100
-            // Si hay un Ingreso (+20), queremos restarlo del efectivo (120) -> 120 - (+20) = 100
-            // Por lo tanto, restamos el movementsTotal.
-            const dineroTotalComputable = dineroCaja + movementsTotal;
+            // 4. LÓGICA MODIFICADA: Ahora solo se compara el efectivo físico CONTRA la venta de mercancía.
+            // La diferencia (diferencia) es Dinero Caja - Total Ventas.
             
-            // 5. Calcular Diferencia (Saldo)
-            // Comparamos el dinero ajustado CONTRA la venta de mercancía
-            const diferencia = dineroTotalComputable - finalTotalSales;
+            // 5. Calcular Diferencia (Saldo) - REGLA DEL USUARIO: Caja vs Ventas
+            const diferencia = dineroCaja - finalTotalSales;
             
             // 6. Actualizar Resumen Fijo
             // NOTA: Etiqueta cambiada de "Ventas Esperadas Netas" a "Total Ventas Mercancia" para reflejar que es el objetivo
@@ -397,10 +404,10 @@
                 cashDifferenceDisplay.classList.remove('text-green-600', 'text-red-600', 'text-gray-600');
                 
                 if (diferencia > 0) {
-                    cashDifferenceLabel.textContent = 'Saldo a Favor';
+                    cashDifferenceLabel.textContent = 'Saldo a Favor'; // Etiqueta más clara
                     cashDifferenceDisplay.classList.add('text-green-600');
                 } else if (diferencia < 0) {
-                    cashDifferenceLabel.textContent = 'Saldo Faltante';
+                    cashDifferenceLabel.textContent = 'Saldo Faltante (sin movimientos)'; // Etiqueta más clara
                     cashDifferenceDisplay.classList.add('text-red-600');
                 } else {
                     cashDifferenceLabel.textContent = 'Saldo (Cero)';
@@ -470,7 +477,7 @@
                     return ''; 
                 }).join('');
 
-                // AÑADIDO: Botón "Ver Detalle" en el historial con listener
+                // NUEVO: Botón "Ver Detalle" en el historial con listener
                 historyHTML += `
                     <div class="bg-white p-4 rounded-xl border border-indigo-200 shadow-sm history-card mr-4 flex flex-col justify-between">
                         <div>
@@ -607,15 +614,11 @@
                 }
             });
 
-            // Logic Updated: 
-            // movementsTotal = Income - Expenses
-            const movementsTotal = movements.reduce((acc, m) => m.type === 'expense' ? acc - m.value : acc + m.value, 0);
+            // Logic for Movements Total: Income - Expenses (Neto)
+            const movementsTotal = movements.reduce((acc, m) => m.type === 'expense' ? acc + m.value : acc + m.value, 0);
             
-            // Nueva logica: Dinero computable = Caja - (Ingresos - Gastos)
-            // = Caja - Ingresos + Gastos
-            const dineroTotalComputable = dineroCaja + movementsTotal;
-            
-            const diferencia = dineroTotalComputable - Math.round(totalVentasMercancia);
+            // Lógica MODIFICADA: El saldo es la resta directa de Caja menos Ventas (SOLO comparación directa).
+            const diferencia = dineroCaja - Math.round(totalVentasMercancia);
             
             const finalReport = {
                 date: reportDate,
@@ -623,7 +626,8 @@
                 dineroCaja: dineroCaja, 
                 totalVentasMercancia: Math.round(totalVentasMercancia), 
                 movements: movements,
-                dineroTotalComputable: Math.round(dineroTotalComputable), // Nuevo campo
+                movementsNetTotal: Math.round(movementsTotal), // NUEVO: Guardar el total neto de movimientos
+                // Se eliminó 'dineroTotalComputable' de la estructura del reporte.
                 diferencia: diferencia,
                 products: reportData, 
                 timestamp: new Date().toISOString()
@@ -647,18 +651,105 @@
         
         // --- BOUCHER GENERATION AND DISPLAY ---
         
+        function getReportSummaryText(report) {
+            const formattedDate = formatDate(report.date);
+            const formattedTime = formatTime(report.timestamp);
+
+            let summary = `*-- Cierre de Caja: ${report.posName} --*\n`;
+            summary += `Fecha: ${formattedDate} (${formattedTime})\n\n`;
+
+            // 1. Mercancía Vendida
+            summary += `*1. Mercancía Vendida:*\n`;
+            report.products.forEach(p => {
+                if (p.totalVenta > 0) {
+                    const unitText = p.isDecimal ? 'gr' : 'unid.'; 
+                    summary += `  • ${p.productName}: ${Math.round(p.vendida)} ${unitText} (${formatCurrency(p.totalVenta)})\n`;
+                }
+            });
+            summary += `\n*TOTAL VENTAS MERCANCÍA (Objetivo): ${formatCurrency(report.totalVentasMercancia)}*\n\n`;
+
+            // 2. Movimientos
+            summary += `*2. Movimientos de Caja:*\n`;
+            if (report.movements && report.movements.length > 0) {
+                report.movements.forEach(m => {
+                    const sign = m.type === 'expense' ? '(-)' : '(+)';
+                    summary += `  • ${m.name}: ${sign} ${formatCurrency(m.value)}\n`;
+                });
+                const netType = report.movementsNetTotal >= 0 ? 'Ingreso Neto' : 'Gasto Neto';
+                summary += `  -> Total Neto Movimientos: ${formatCurrency(report.movementsNetTotal)} (${netType})\n\n`;
+            } else {
+                summary += `  Sin movimientos extra.\n\n`;
+            }
+
+            // 3. Saldo Final
+            const saldoTipo = report.diferencia === 0 ? 'CERO' : (report.diferencia > 0 ? 'A FAVOR' : 'FALTANTE');
+            summary += `*3. Saldo Final:*\n`;
+            summary += `  - Dinero en Caja Físico: ${formatCurrency(report.dineroCaja)}\n`;
+            summary += `  - Total Ventas Mercancía: ${formatCurrency(report.totalVentasMercancia)}\n`;
+            summary += `  *DIFERENCIA FINAL (${saldoTipo}): ${formatCurrency(report.diferencia)}*\n\n`;
+            summary += `_Generado por Sistema de Reporte Diario_`;
+
+            return summary;
+        }
+
+        function shareReportSummary(report) {
+            const summaryText = getReportSummaryText(report);
+            const shareTitle = `Reporte de Caja - ${report.posName}`;
+
+            // 1. Try using the Web Share API (native mobile sharing)
+            if (navigator.share) {
+                navigator.share({
+                    title: shareTitle,
+                    text: summaryText,
+                }).then(() => {
+                    displayMessage('Resumen compartido exitosamente.', 'success');
+                }).catch((error) => {
+                    // Check if the error is due to user aborting the action, otherwise show error
+                    if (error.name !== 'AbortError') {
+                        // Fallback to WhatsApp URL if native share fails
+                         window.open(`whatsapp://send?text=${encodeURIComponent(summaryText)}`, '_blank');
+                         displayMessage('Error al compartir. Usando WhatsApp fallback.', 'warning');
+                    }
+                });
+            } else {
+                // 2. Fallback for Desktop/Non-supporting browsers: Copy to clipboard and open WhatsApp Web link
+                try {
+                    // Use execCommand('copy') as requested in instructions for iFrame support
+                    const tempInput = document.createElement('textarea');
+                    tempInput.value = summaryText;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+
+                    displayMessage('Resumen copiado al portapapeles. Abriendo WhatsApp Web...', 'success');
+                    
+                    // Also open WhatsApp Web in a new tab
+                    setTimeout(() => {
+                        window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(summaryText)}`, '_blank');
+                    }, 500);
+
+                } catch (err) {
+                    console.error('Fallback sharing failed:', err);
+                    displayMessage('Error al copiar. Por favor, copia el texto manualmente del boucher.', 'error');
+                }
+            }
+        }
+        
         function generateBoucher(report) {
+            currentReportToShare = report; // Almacena el reporte para las funciones de compartir/imprimir
+
             const boucherBody = document.getElementById('boucher-body');
             const formattedDate = formatDate(report.date);
             const formattedTime = formatTime(report.timestamp);
             const relevantProducts = report.products.filter(p => p.vendida > 0 || p.sobrante > 0); 
             
             let saldoTipo = '--';
-            let saldoColor = 'text-red-700'; 
+            let saldoColor = 'text-gray-700'; 
             if (report.diferencia > 0) {
                 saldoTipo = 'A FAVOR';
                 saldoColor = 'text-green-700'; 
-            }if (report.diferencia <0){
+            } else if (report.diferencia < 0){
 			   saldoTipo = 'FALTANTE';
                saldoColor = 'text-red-700'; 
 			}
@@ -669,13 +760,12 @@
 
             const saldoHTML = `
                 <div class="flex justify-between items-center text-base font-extrabold pt-2 border-t border-gray-200">
-                    <span>SALDO FINAL (${saldoTipo}):</span>
-                    <span class="font-bold ${saldoColor}">${formatCurrency(Math.abs(report.diferencia))}</span>
+                    <span>SALDO FINAL:</span>
+                    <span class="font-bold ${saldoColor}">${formatCurrency(Math.abs(report.diferencia))} (${saldoTipo})</span>
                 </div>
             `;
             
-            // Revertir signo para visualización en sección de Caja: Gasto se ve como suma (justifica caja)
-            // Ingreso se ve como resta (dinero extra ajeno a ventas)
+            // Visualización Estandar: Gasto (-) Rojo, Ingreso (+) Verde
             const movementsHTML = report.movements && report.movements.length > 0 ? 
                 report.movements.map(m => `
                     <div class="flex justify-between items-center text-xs text-gray-600">
@@ -697,9 +787,6 @@
                     `;
                 }).join('');
             
-                // Calculo compatible para reportes antiguos y nuevos
-                const totalComputable = report.dineroTotalComputable !== undefined ? report.dineroTotalComputable : (report.ventasEsperadasNetas - report.diferencia); // Aproximacion si falla
-                
                 boucherBody.innerHTML = `
                     <div class="space-y-1 mb-4 text-center">
                         <p class="text-lg font-bold text-gray-900">${report.posName}</p>
@@ -731,13 +818,14 @@
                         </div>
 
                         <div class="py-1 border-b border-gray-100">
-                            <p class="text-xs font-semibold text-gray-500 mb-1">(Gastos/Ingresos):</p>
+                            <p class="text-xs font-semibold text-gray-500 mb-1">Movimientos (Gastos/Ingresos):</p>
                             ${movementsHTML}
                         </div>
                          
-                         <div class="flex justify-between items-center text-sm font-semibold text-gray-600 pt-1">
-                            <span>Total:</span>
-                            <span>${formatCurrency(totalComputable)}</span>
+                         <!-- NUEVO: Mostrar el Total Neto de Movimientos (Ingresos - Gastos) -->
+                         <div class="flex justify-between items-center text-xs font-semibold text-gray-600 pt-1 border-b border-gray-200 pb-2">
+                            <span>Total Movimientos:</span>
+                            <span class="${report.movementsNetTotal >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(Math.abs(report.movementsNetTotal))}</span>
                         </div>
                         
                         ${saldoHTML}
@@ -749,7 +837,7 @@
             
             openModal();
         }
-        
+
         function openModal() {
             document.getElementById('boucher-modal').classList.remove('hidden');
             document.body.classList.add('overflow-hidden');
@@ -1010,11 +1098,20 @@
 
             <!-- Botones de acción del modal -->
             <div class="flex flex-col space-y-3 mt-5">
+                <!-- NUEVO BOTÓN DE COMPARTIR -->
+                <button id="share-boucher-btn" class="flex items-center justify-center px-4 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.314l4.94 2.47a3 3 0 10.832-1.664l-4.94-2.47a3.02 3.02 0 000-1.099l4.94-2.47A3 3 0 0015 8z" />
+                    </svg>
+                    Compartir Resumen (WhatsApp/Email)
+                </button>
+                
+                <!-- BOTÓN DE IMPRIMIR/PDF (Función existente) -->
                 <button id="print-boucher-btn" class="flex items-center justify-center px-4 py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition shadow-md">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2v-3a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm2 5a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
                     </svg>
-                    Imprimir / Descargar (PDF)
+                    Imprimir / Descargar PDF
                 </button>
                 <button id="close-modal-btn" class="px-4 py-2 text-gray-600 bg-gray-100 font-medium rounded-xl hover:bg-gray-200 transition">
                     Cerrar
