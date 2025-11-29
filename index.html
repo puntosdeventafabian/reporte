@@ -121,7 +121,7 @@
             
             reportArea.addEventListener('input', (e) => {
                 if (e.target.tagName === 'INPUT') {
-                    if (e.target.name === 'precio' || e.target.name === 'entregada' || e.target.name === 'sobrante' || e.target.id === 'cash-amount' || e.target.classList.contains('movement-value')) {
+                    if (e.target.name === 'precio' || e.target.name === 'entregada' || e.target.name === 'sobrante' || e.target.id === 'cash-amount' || e.target.id === 'employee-breakfast' || e.target.classList.contains('movement-value')) {
                         recalculateReport();
                     }
                 }
@@ -131,13 +131,13 @@
             });
             
             reportArea.addEventListener('focusin', (e) => {
-                 if (e.target.tagName === 'INPUT' && (e.target.name === 'precio' || e.target.name === 'entregada' || e.target.name === 'sobrante' || e.target.id === 'cash-amount' || e.target.classList.contains('movement-value'))) {
+                 if (e.target.tagName === 'INPUT' && (e.target.name === 'precio' || e.target.name === 'entregada' || e.target.name === 'sobrante' || e.target.id === 'cash-amount' || e.target.id === 'employee-breakfast' || e.target.classList.contains('movement-value'))) {
                     handleInputFocus(e.target);
                 }
             });
 
             reportArea.addEventListener('focusout', (e) => {
-                if (e.target.tagName === 'INPUT' && (e.target.name === 'precio' || e.target.name === 'entregada' || e.target.name === 'sobrante' || e.target.id === 'cash-amount' || e.target.classList.contains('movement-value'))) {
+                if (e.target.tagName === 'INPUT' && (e.target.name === 'precio' || e.target.name === 'entregada' || e.target.name === 'sobrante' || e.target.id === 'cash-amount' || e.target.id === 'employee-breakfast' || e.target.classList.contains('movement-value'))) {
                     handleInputBlur(e.target);
                 }
             });
@@ -256,11 +256,11 @@
                         <input id="${uniqueId}-precio" type="number" name="precio" value="${defaults.precio}" min="0" step="100" inputmode="numeric" class="input-field-mobile w-full text-center bg-gray-100 font-semibold border-gray-400">
                     </div>
                     <div>
-                        <label for="${uniqueId}-entregada" name="entregada-label" class="block text-xs font-medium text-gray-500 mb-1">Cant. Entregada (Unidades)</label>
+                        <label for="${uniqueId}-entregada" name="entregada-label" class="block text-xs font-medium text-gray-500 mb-1">Cant. Entregada</label>
                         <input id="${uniqueId}-entregada" type="number" name="entregada" value="${defaults.entregada}" min="0" step="1" inputmode="numeric" class="input-field-mobile w-full text-center bg-blue-50">
                     </div>
                     <div>
-                        <label for="${uniqueId}-sobrante" name="sobrante-label" class="block text-xs font-medium text-gray-500 mb-1">Cant. Sobrante (Unidades)</label>
+                        <label for="${uniqueId}-sobrante" name="sobrante-label" class="block text-xs font-medium text-gray-500 mb-1">Cant. Sobrante</label>
                         <input id="${uniqueId}-sobrante" type="number" name="sobrante" value="${defaults.sobrante}" min="0" step="1" inputmode="numeric" class="input-field-mobile w-full text-center bg-yellow-50">
                     </div>
                 </div>
@@ -373,41 +373,44 @@
                 grandTotalSales += totalVenta;
             }
             
-            const finalTotalSales = Math.round(grandTotalSales);
+            const totalVentasMercancia = Math.round(grandTotalSales);
 
-            // 2. Calcular Movimientos (Gastos/Ingresos Dinámicos)
-            const movementsTotal = getMovementsTotal();
-
-            // 3. Obtener Dinero de Caja
+            // 1. Obtener Dinero de Caja
             const cashAmountInput = document.getElementById('cash-amount');
             const dineroCaja = Math.round(parseFloat(cashAmountInput?.value) || 0);
+            
+            // 2. Obtener Desayuno de Empleado
+            const breakfastInput = document.getElementById('employee-breakfast');
+            const valorDesayuno = Math.round(parseFloat(breakfastInput?.value) || 0);
 
-            // 4. LÓGICA MODIFICADA: Ahora solo se compara el efectivo físico CONTRA la venta de mercancía.
-            // La diferencia (diferencia) es Dinero Caja - Total Ventas.
+            // 3. Ventas Ajustadas (Mercancia Vendida - Desayuno)
+            const ventasAjustadas = totalVentasMercancia - valorDesayuno; 
             
-            // 5. Calcular Diferencia (Saldo) - REGLA DEL USUARIO: Caja vs Ventas
-            const diferencia = dineroCaja - finalTotalSales;
+            // 4. Calcular Diferencia (Saldo) - REGLA DEL USUARIO: Caja vs Ventas Ajustadas
+            const diferencia = dineroCaja - ventasAjustadas; 
             
-            // 6. Actualizar Resumen Fijo
-            // NOTA: Etiqueta cambiada de "Ventas Esperadas Netas" a "Total Ventas Mercancia" para reflejar que es el objetivo
+            // 5. Actualizar Resumen Fijo
+            
+            // Etiqueta cambiada a 'Ventas Esperadas Ajustadas'
             const labelVentasDisplay = document.querySelector('.fixed-summary-bar p.text-xs.font-medium.text-gray-500');
-            if (labelVentasDisplay) labelVentasDisplay.textContent = "Total Ventas Mercancia";
+            if (labelVentasDisplay) labelVentasDisplay.textContent = "Ventas Esperadas Ajustadas";
 
             const grandTotalSalesDisplay = document.getElementById('grand-total-sales-display');
             const cashDifferenceDisplay = document.getElementById('cash-difference-display');
             const cashDifferenceLabel = document.getElementById('cash-difference-label');
             
-            if (grandTotalSalesDisplay) grandTotalSalesDisplay.textContent = formatCurrency(finalTotalSales);
+            // Mostrar Ventas Ajustadas en el resumen fijo
+            if (grandTotalSalesDisplay) grandTotalSalesDisplay.textContent = formatCurrency(ventasAjustadas); 
             
             if (cashDifferenceDisplay) {
                 cashDifferenceDisplay.textContent = formatCurrency(Math.abs(diferencia));
                 cashDifferenceDisplay.classList.remove('text-green-600', 'text-red-600', 'text-gray-600');
                 
                 if (diferencia > 0) {
-                    cashDifferenceLabel.textContent = 'Saldo a Favor'; // Etiqueta más clara
+                    cashDifferenceLabel.textContent = 'Saldo a Favor (ajustado)'; 
                     cashDifferenceDisplay.classList.add('text-green-600');
                 } else if (diferencia < 0) {
-                    cashDifferenceLabel.textContent = 'Saldo Faltante'; // Etiqueta más clara
+                    cashDifferenceLabel.textContent = 'Saldo Faltante (ajustado)'; 
                     cashDifferenceDisplay.classList.add('text-red-600');
                 } else {
                     cashDifferenceLabel.textContent = 'Saldo (Cero)';
@@ -462,8 +465,8 @@
                     saldoTipo = 'Faltante';
                 }
                 
-                // Compatibilidad hacia atrás para reportes viejos que usaban 'ventasEsperadasNetas'
-                const displayTotal = data.totalVentasMercancia || data.ventasEsperadasNetas || 0;
+                // Compatibility: use totalVentasAjustadas or fall back to previous structures
+                const displayTotal = data.ventasAjustadas !== undefined ? data.ventasAjustadas : (data.totalVentasMercancia || data.ventasEsperadasNetas || 0);
 
                 const productDetails = data.products.map(p => {
                     if (p.totalVenta > 0) { 
@@ -487,7 +490,7 @@
                             </div>
                             <div class="mb-3">
                                 <div>
-                                    <p class="text-sm text-gray-600">Ventas total:</p>
+                                    <p class="text-sm text-gray-600">Ventas Ajustadas:</p>
                                     <p class="text-xl font-extrabold text-green-700">${formatCurrency(displayTotal)}</p>
                                 </div>
                                 <div class="mt-2">
@@ -533,6 +536,8 @@
             const posName = document.getElementById('pos-name').value.trim();
             const cashAmountInput = document.getElementById('cash-amount');
             const dineroCaja = Math.round(parseFloat(cashAmountInput.value) || 0); 
+            const breakfastInput = document.getElementById('employee-breakfast');
+            const valorDesayuno = Math.round(parseFloat(breakfastInput.value) || 0); // NUEVO: Valor Desayuno
             const productCards = document.querySelectorAll('.product-card');
             const reportData = [];
 
@@ -617,17 +622,21 @@
             // Logic for Movements Total: Income - Expenses (Neto)
             const movementsTotal = movements.reduce((acc, m) => m.type === 'expense' ? acc + m.value : acc + m.value, 0);
             
-            // Lógica MODIFICADA: El saldo es la resta directa de Caja menos Ventas (SOLO comparación directa).
-            const diferencia = dineroCaja - Math.round(totalVentasMercancia);
+            // NUEVO: Ventas Ajustadas (Mercancia - Desayuno)
+            const ventasAjustadas = totalVentasMercancia - valorDesayuno;
+            
+            // Lógica MODIFICADA: El saldo es la resta directa de Caja menos Ventas Ajustadas.
+            const diferencia = dineroCaja - Math.round(ventasAjustadas);
             
             const finalReport = {
                 date: reportDate,
                 posName: posName, 
                 dineroCaja: dineroCaja, 
                 totalVentasMercancia: Math.round(totalVentasMercancia), 
+                valorDesayuno: valorDesayuno, // NUEVO: Guardar valor Desayuno
+                ventasAjustadas: Math.round(ventasAjustadas), // NUEVO: Guardar ventas ajustadas
                 movements: movements,
-                movementsNetTotal: Math.round(movementsTotal), // NUEVO: Guardar el total neto de movimientos
-                // Se eliminó 'dineroTotalComputable' de la estructura del reporte.
+                movementsNetTotal: Math.round(movementsTotal), 
                 diferencia: diferencia,
                 products: reportData, 
                 timestamp: new Date().toISOString()
@@ -641,9 +650,11 @@
             let summaryMessage = `Reporte de ${posName} guardado.`;
             displayMessage(summaryMessage, diferencia < 0 ? 'warning' : 'success');
             
+            // Limpiar inputs
             document.getElementById('report-list').innerHTML = '';
-            document.getElementById('movements-list').innerHTML = ''; // Limpiar movimientos
+            document.getElementById('movements-list').innerHTML = ''; 
             document.getElementById('cash-amount').value = 0;
+            document.getElementById('employee-breakfast').value = 0; // Limpiar Desayuno
             addProductCard({}); 
             loadReportHistory(); 
             recalculateReport();
@@ -659,14 +670,19 @@
             summary += `Fecha: ${formattedDate} (${formattedTime})\n\n`;
 
             // 1. Mercancía Vendida
-            summary += `*1. Mercancía Vendida:*\n`;
+            summary += `*1. Resumen de Ventas:*\n`;
             report.products.forEach(p => {
                 if (p.totalVenta > 0) {
                     const unitText = p.isDecimal ? 'gr' : 'unid.'; 
                     summary += `  • ${p.productName}: ${Math.round(p.vendida)} ${unitText} (${formatCurrency(p.totalVenta)})\n`;
                 }
             });
-            summary += `\n*TOTAL VENTAS MERCANCÍA (Objetivo): ${formatCurrency(report.totalVentasMercancia)}*\n\n`;
+            summary += `\n*TOTAL VENTAS BRUTAS: ${formatCurrency(report.totalVentasMercancia)}*\n`;
+            
+            // Ajuste por Desayuno
+            summary += `  (-) Desayuno Empleado: ${formatCurrency(report.valorDesayuno || 0)}\n`;
+            summary += `*TOTAL VENTAS AJUSTADAS: ${formatCurrency(report.ventasAjustadas)}*\n\n`;
+
 
             // 2. Movimientos
             summary += `*2. Movimientos de Caja:*\n`;
@@ -685,7 +701,7 @@
             const saldoTipo = report.diferencia === 0 ? 'CERO' : (report.diferencia > 0 ? 'A FAVOR' : 'FALTANTE');
             summary += `*3. Saldo Final:*\n`;
             summary += `  - Dinero en Caja Físico: ${formatCurrency(report.dineroCaja)}\n`;
-            summary += `  - Total Ventas Mercancía: ${formatCurrency(report.totalVentasMercancia)}\n`;
+            summary += `  - Total Ventas Ajustadas: ${formatCurrency(report.ventasAjustadas)}\n`;
             summary += `  *DIFERENCIA FINAL (${saldoTipo}): ${formatCurrency(report.diferencia)}*\n\n`;
             summary += `_Generado por Sistema de Reporte Diario_`;
 
@@ -760,7 +776,7 @@
 
             const saldoHTML = `
                 <div class="flex justify-between items-center text-base font-extrabold pt-2 border-t border-gray-200">
-                    <span>SALDO FINAL:</span>
+                    <span>SALDO FINAL (Caja vs Ventas Ajustadas):</span>
                     <span class="font-bold ${saldoColor}">${formatCurrency(Math.abs(report.diferencia))} (${saldoTipo})</span>
                 </div>
             `;
@@ -793,7 +809,7 @@
                         <p class="text-xs text-gray-500">Fecha: ${formattedDate}</p>
                         <p class="text-xs text-gray-500">Hora : ${formattedTime}</p>
                     </div>
-                    <h4 class="text-center text-sm font-semibold mb-2 mt-4 text-indigo-700">DETALLE</h4>
+                    <h4 class="text-center text-sm font-semibold mb-2 mt-4 text-indigo-700">DETALLE DE VENTAS</h4>
                     <table class="w-full text-xs mb-4">
                         <thead class="border-b border-t border-gray-300">
                             <tr>
@@ -806,14 +822,28 @@
                         </thead>
                         <tbody>${detailRows}</tbody>
                     </table>
+                    
                     <div class="border-t-2 border-dashed border-gray-400 pt-3 mt-4 space-y-2">
+                        <!-- Venta Bruta -->
                         <div class="flex justify-between items-center text-sm font-bold text-gray-800 border-b border-gray-200 pb-2 mb-2">
-                            <span>TOTAL VENTAS MERCANCIA:</span>
+                            <span>TOTAL MERCANCIA:</span>
                             <span class="text-green-700">${formatCurrency(report.totalVentasMercancia)}</span>
                         </div>
                         
-                        <div class="flex justify-between items-center text-sm font-medium text-gray-700">
-                            <span>Dinero en Caja:</span>
+                        <!-- Valor Desayuno Empleado -->
+                        <div class="flex justify-between items-center text-xs font-medium text-gray-700">
+                            <span>(-) Desayuno Empleado:</span>
+                            <span class="font-bold text-red-500">${formatCurrency(report.valorDesayuno || 0)}</span>
+                        </div>
+                        
+                        <!-- Venta Ajustada -->
+                        <div class="flex justify-between items-center text-sm font-bold text-gray-800 pt-2 border-t border-gray-200">
+                            <span>TOTAL</span>
+                            <span class="text-green-700">${formatCurrency(report.ventasAjustadas)}</span>
+                        </div>
+
+                        <div class="flex justify-between items-center text-sm font-medium text-gray-700 pt-2">
+                            <span>Dinero en Caja</span>
                             <span class="font-bold text-indigo-700">${formatCurrency(report.dineroCaja)}</span>
                         </div>
 
@@ -879,6 +909,7 @@
                     .text-red-700 { color: #dc2626; }
                     .text-indigo-700 { color: #4338ca; }
                     .text-gray-700 { color: #374151; }
+                    .text-red-500 { color: #ef4444; }
                 </style>
             `);
             printWindow.document.write('</head><body>');
@@ -1029,24 +1060,34 @@
             <h2 class="text-lg font-bold text-green-700 mb-3 border-b pb-2">Gastos y Saldo en Caja</h2>
              
              <div class="space-y-3">
+                 <!-- DINERO EN CAJA (Valor real) -->
+                 <div class="pt-2">
+                    <label for="cash-amount" class="block text-sm font-medium text-gray-700 mb-1">Dinero en Caja (total)</label>
+                    <input type="number" id="cash-amount" value="0" min="0" step="1000" inputmode="numeric" class="input-field-mobile w-full text-center bg-green-50 border-green-300 font-bold text-xl">
+                 </div>
+                 
+                 <!-- NUEVO: VALOR DESAYUNO EMPLEADO (Resta a la venta) -->
+                 <div class="pt-2 border-t border-gray-100">
+                    <label for="employee-breakfast" class="block text-sm font-medium text-gray-700 mb-1">Desayuno</label>
+                    <input type="number" id="employee-breakfast" value="0" min="0" step="1000" inputmode="numeric" class="input-field-mobile w-full text-center bg-red-50 border-red-300 font-bold text-xl">
+                 </div>
+
                  <!-- Contenedor Dinámico de Movimientos -->
-                 <div id="movements-list">
-                     <!-- Aquí se agregarán dinámicamente los inputs de gastos/ingresos -->
+                 <div class="pt-4 border-t border-gray-200">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2">Movimientos de Caja (Gastos/Ingresos)</h3>
+                     <div id="movements-list">
+                         <!-- Aquí se agregarán dinámicamente los inputs de gastos/ingresos -->
+                     </div>
                  </div>
                  
                  <!-- Botón para agregar movimiento -->
-                 <button id="add-movement-btn" type="button" class="w-full flex items-center justify-center px-4 py-2 bg-blue-50 text-blue-700 font-semibold rounded-lg border border-blue-200 hover:bg-blue-100 mb-4">
+                 <button id="add-movement-btn" type="button" class="w-full flex items-center justify-center px-4 py-2 bg-blue-50 text-blue-700 font-semibold rounded-lg border border-blue-200 hover:bg-blue-100">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
                     </svg>
                     Agregar Movimiento
                  </button>
                  
-                 <!-- DINERO EN CAJA (Valor real) -->
-                 <div class="pt-2 border-t border-gray-200">
-                    <label for="cash-amount" class="block text-sm font-medium text-gray-700 mb-1">Dinero en Caja (total)</label>
-                    <input type="number" id="cash-amount" value="0" min="0" step="1000" inputmode="numeric" class="input-field-mobile w-full text-center bg-green-50 border-green-300 font-bold text-xl">
-                 </div>
              </div>
         </div>
 
@@ -1065,7 +1106,7 @@
         <div class="grid grid-cols-2 gap-4 mb-3 border-b pb-3"> 
             <!-- Valor Total Mercancia (Ventas Esperadas Netas) -->
             <div>
-                <p class="text-xs font-medium text-gray-500">Total Ventas Mercancia</p>
+                <p class="text-xs font-medium text-gray-500">Ventas Esperadas Ajustadas</p>
                 <p id="grand-total-sales-display" class="text-2xl font-extrabold text-green-700">0</p>
             </div>
             <!-- Saldo Faltante/Favor -->
