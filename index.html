@@ -776,7 +776,7 @@
 
             const saldoHTML = `
                 <div class="flex justify-between items-center text-base font-extrabold pt-2 border-t border-gray-200">
-                    <span>SALDO FINAL (Caja vs Ventas Ajustadas):</span>
+                    <span>SALDO FINAL:</span>
                     <span class="font-bold ${saldoColor}">${formatCurrency(Math.abs(report.diferencia))} (${saldoTipo})</span>
                 </div>
             `;
@@ -809,7 +809,7 @@
                         <p class="text-xs text-gray-500">Fecha: ${formattedDate}</p>
                         <p class="text-xs text-gray-500">Hora : ${formattedTime}</p>
                     </div>
-                    <h4 class="text-center text-sm font-semibold mb-2 mt-4 text-indigo-700">DETALLE DE VENTAS</h4>
+                    <h4 class="text-center text-sm font-semibold mb-2 mt-4 text-indigo-700">DETALLES</h4>
                     <table class="w-full text-xs mb-4">
                         <thead class="border-b border-t border-gray-300">
                             <tr>
@@ -832,7 +832,7 @@
                         
                         <!-- Valor Desayuno Empleado -->
                         <div class="flex justify-between items-center text-xs font-medium text-gray-700">
-                            <span>(-) Desayuno Empleado:</span>
+                            <span>(-) Desayuno:</span>
                             <span class="font-bold text-red-500">${formatCurrency(report.valorDesayuno || 0)}</span>
                         </div>
                         
