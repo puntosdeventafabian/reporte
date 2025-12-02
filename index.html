@@ -695,7 +695,7 @@
             summary += `\n*TOTAL MERCANCIA: ${formatCurrency(report.totalVentasMercancia)}*\n`;
             
             // Ajuste por Desayuno
-            summary += `  (-) Desayuno Empleado: ${formatCurrency(report.valorDesayuno || 0)}\n`;
+            summary += `  (-) Desayuno: ${formatCurrency(report.valorDesayuno || 0)}\n`;
             summary += `*AJUSTE MERCANCIA: ${formatCurrency(report.ventasAjustadas)}*\n\n`;
 
 
@@ -907,7 +907,7 @@
                         
                         <!-- Valor Desayuno Empleado -->
                         <div class="flex justify-between items-center text-xs font-medium text-gray-700">
-                            <span>(-) Desayuno Empleado:</span>
+                            <span>(-) Desayuno:</span>
                             <span class="font-bold text-red-500">${formatCurrency(report.valorDesayuno || 0)}</span>
                         </div>
                         
